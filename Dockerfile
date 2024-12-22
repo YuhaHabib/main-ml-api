@@ -1,10 +1,15 @@
-FROM node:16
+FROM node:20
 
-WORKDIR /app
-ENV PORT 8080
-ENV HOST 0.0.0.0
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm install
 
 COPY . .
-RUN npm install
-EXPOSE 8080
-CMD [ "npm", "run", "start"]
+
+ENV PORT=3000
+
+ENV MODEL_URL='https://storage.googleapis.com/cancer-mods/model.json'
+
+CMD ["npm", "start"]

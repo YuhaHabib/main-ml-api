@@ -1,62 +1,57 @@
-const predictClassification = require("../services/InferenceService");
-const crypto = require("crypto");
-const storeData = require("../services/storeData");
+const predictClassification = require('../services/inferenceService');
+const crypto = require('crypto');
+const storeData = require('../services/storeData');
+const { Firestore } = require('@google-cloud/firestore');
 
 async function postPredictHandler(request, h) {
-  const { image } = request.payload;
-  const { model } = request.server.app;
-  const { confidenceScore, label, suggestion } = await predictClassification(
-    model,
-    image
-  );
-  const id = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
+    const { image } = request.payload;
+    const { model } = request.server.app;
 
-  const data = {
-    id: id,
-    result: label,
-    suggestion: suggestion,
-    createdAt: createdAt,
-  };
+    const { result, suggestion } = await predictClassification(model, image);
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
 
-  await storeData(id, data);
+    const data = {
+        "id": id,
+        "result": result,
+        "suggestion": suggestion,
+        "createdAt": createdAt
+    }
 
-  const response = h.response({
-    status: "success",
-    message:
-      confidenceScore > 99
-        ? "Model is predicted successfully"
-        : "Model is predicted successfully but under threshold. Please use the correct picture",
-    data,
-  });
-  response.code(201);
-  return response;
-}
+    await storeData(id, data);
 
-async function predictHistories(request, h) {
-  const { model } = request.server.app;
-  const { Firestore } = require("@google-cloud/firestore");
-  const db = new Firestore({
-    projectId: "submissionmlgc-ash",
-  });
-  const predictCollection = db.collection("predictions");
-  const snapshot = await predictCollection.get();
-  const result = [];
-  snapshot.forEach((doc) => {
-    result.push({
-      id: doc.id,
-      history: {
-        result: doc.data().result,
-        createdAt: doc.data().createdAt,
-        suggestion: doc.data().suggestion,
-        id: doc.data().id,
-      },
+    const response = h.response({
+        status: 'success',
+        message: 'Model is predicted successfully',
+        data: data
     });
-  });
-  return h.response({
-    status: "success",
-    data: result,
-  });
+
+    response.code(201);
+    return response;
+};
+
+async function getHistoriesHandler(request, h) {
+    const db = new Firestore();
+    const predictCollection = db.collection('predictions');
+    const predictSnapshot = await predictCollection.get();
+
+    const data = [];
+
+    predictSnapshot.forEach((doc) => {
+        const history = {
+            id: doc.id,
+            history: doc.data()
+        };
+        data.push(history);
+    });
+
+    const response = h.response({
+        status: 'success',
+        data: data
+    });
+    response.code(200);
+    return response;
 }
 
-module.exports = { postPredictHandler, predictHistories };
+
+module.exports = { postPredictHandler, getHistoriesHandler };
